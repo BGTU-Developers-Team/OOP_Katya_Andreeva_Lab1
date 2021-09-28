@@ -16,6 +16,45 @@ private:
 
     T *elements;
 
+    int getBaseId(int currentLineId) {
+        int idx = 0;
+        for (int i = 0; i < currentLineId; ++i) {
+            idx += linesLengths[i];
+        }
+
+        return idx;
+    }
+
+
+    void saveElement(int &elementsPerLineCounter, int &elementsCounter, std::string &stringBuilder) {
+        T element; // переменная для временного хранения элемента матрицы (Для его сохранения)
+
+        std::istringstream ss(
+                stringBuilder); // мы берем нашу строку с записанными данными (новым элементом матрицы) и делаем из него поток данных для того, чтобы потом можно было сделать проверку, а можно ли его вообще записать в наше временную переменную.
+        stringBuilder.clear(); // очищаем собранный из символов элемент матрицы
+        if (ss
+                >> element) { // Пытаемся записать строку, собранную до того посимвольно, во временную переменную
+            // Если успешно, то:
+            elementsPerLineCounter++; // увеличиваем счетчик элементов в строке
+            elementsCounter++; // увеличиваем счетчик всех элементов
+            elements = static_cast<T *>(realloc(elements, sizeof(T) *
+                                                          elementsCounter)); // выделяем дополнительную память для нового элемента
+            elements[elementsCounter - 1] = element; // сохраняем в новую память этот элемент
+        } else {
+            // Если не удалось записать собранную строчку во временную переменную, то:
+            delete[] elements; // очистить память, где хранились элементы. Они уже не нужны, потому что матрица неправильно пришла на обработку.
+            elements = nullptr; // наведем на НИЧЕГО (NULL или же nullptr)
+
+            delete[] linesLengths; // очистить память, где хранились длины строок. Они уже не нужны, потому что матрица неправильно пришла на обработку.
+            linesLengths = nullptr; // наведем на НИЧЕГО (NULL или же nullptr)
+
+            linesCounter = 0; // обнуолим счетчик строк
+
+            throw std::invalid_argument("Error! Value is invalid: " + std::to_string(
+                    element)); // вызываем (выбрасываем) ошибку, где говорим, что значение некорректное и показываем, что за значение мы получили.
+        }
+    }
+
 
 public:
 
@@ -45,6 +84,9 @@ public:
 
     // Конструктор со стрингами (18+). Необходжимо преобразовать сроку и извлечь из нее все даннные.
     MyMatrix(const std::string &matrixStr) {
+        elements = static_cast<T *>(malloc(sizeof(T)));
+        linesLengths = static_cast<int *>(malloc(sizeof(int)));
+
         auto errorProtocolMsg = "The stringified matrix must look like: {[1,2,3], [1.1, 1.2, 1.3]}"; // тут я просто сохранил сообщение ошибки, потому что буду использовать его много раз. Это хороший подход. Запомни его!
 
         if (matrixStr[0] == '{' && matrixStr.find('}') !=
@@ -57,27 +99,25 @@ public:
                     throw std::invalid_argument(errorProtocolMsg);
                 } else {
                     // Если все нормуль, то начием считывать первый ряд элементов:
-                    bool isBracetOpened = false; // это переменная хранит кол-во открытых скобок в строке, потому что если эта переменная true и при этом встречается символ [, то нужно вызвать исключение, поскольку строка неверная.
+                    bool isBracetOpened = true; // это переменная хранит кол-во открытых скобок в строке, потому что если эта переменная true и при этом встречается символ [, то нужно вызвать исключение, поскольку строка неверная.
+
+                    int elementsCounter = 0; // счетчик элементов во всей матрице
+                    int elementsPerLineCounter = 0; // счетчик элементов матрицы по строке
+
+                    std::string stringBuilder;
 
                     for (int i = 2; matrixStr[i] != '}'; ++i) { // начинаем считывать элементы строки
-                        if (matrixStr[i] == '[' && isBracetOpened) {
+                        if (matrixStr[i] == '[' &&
+                            isBracetOpened) { // Постоянная проверка, что если скобка была до этого открывата и открывается снова, то это ошибка.
                             throw std::invalid_argument(errorProtocolMsg);
                         }
 
-                        int elementsCounter = 0; // счетчик элементов во всей матрице
-                        int elementsPerLineCounter = 0; // счетчик элементов матрицы по строке
-
-                        std::string stringBuilder;
+                        if (matrixStr[i] == ']' &&
+                            !isBracetOpened) { // Постоянная проверка, что если скобка была до этого закрыта и закрывается снова, то это ошибка.
+                            throw std::invalid_argument(errorProtocolMsg);
+                        }
 
                         switch (matrixStr[i]) {
-                            case ']': { // Если линия закрывается, то надо:
-                                isBracetOpened = false; // Сменить флаг
-                                linesLengths[linesCounter -
-                                             1] = elementsPerLineCounter; // Сохранить длину свеже испеченной (добавленной) строки
-                                elementsPerLineCounter = 0; // обнулить счетчик элементов по строке
-
-                                break;
-                            }
                             case '[': { // Если линия закрывается, то надо:
                                 isBracetOpened = true; // Сменить флага
                                 linesCounter++; // Увеличить счетчик строк
@@ -86,32 +126,21 @@ public:
 
                                 break;
                             }
+                            case ']': { // Если линия закрывается, то надо:
+                                isBracetOpened = false; // Сменить флаг
+                                linesCounter++; // увеличиваем счетчик линий
+
+                                saveElement(elementsCounter, elementsPerLineCounter, stringBuilder);
+
+                                linesLengths[linesCounter -
+                                             1] = elementsPerLineCounter; // Сохранить длину свеже испеченной (добавленной) строки.
+                                elementsPerLineCounter = 0; // обнулить счетчик элементов по строке
+
+                                break;
+                            }
                             case ',': { // Если запитая, то надо сохранить новый элемент матрицы
-                                T element; // переменная для временного хранения элемента матрицы (Для его сохранения)
-
-                                std::istringstream ss(
-                                        stringBuilder); // мы берем нашу строку с записанными данными (новым элементом матрицы) и делаем из него поток данных для того, чтобы потом можно было сделать проверку, а можно ли его вообще записать в наше временную переменную.
-                                stringBuilder.clear(); // очищаем собранный из символов элемент матрицы
-                                if (ss
-                                        >> element) { // Пытаемся записать строку, собранную до того посимвольно, во временную переменную
-                                    // Если успешно, то:
-                                    elementsPerLineCounter++; // увеличиваем счетчик элементов в строке
-                                    elements++; // увеличиваем счетчик всех элементов
-                                    elements = static_cast<T *>(realloc(elements, sizeof(T) *
-                                                                                  elementsCounter)); // выделяем дополнительную память для нового элемента
-                                    elements[elementsCounter - 1] = element; // сохраняем в новую память этот элемент
-                                } else {
-                                    // Если не удалось записать собранную строчку во временную переменную, то:
-                                    delete[] elements; // очистить память, где хранились элементы. Они уже не нужны, потому что матрица неправильно пришла на обработку.
-                                    elements = nullptr; // наведем на НИЧЕГО (NULL или же nullptr)
-
-                                    delete[] linesLengths; // очистить память, где хранились длины строок. Они уже не нужны, потому что матрица неправильно пришла на обработку.
-                                    linesLengths = nullptr; // наведем на НИЧЕГО (NULL или же nullptr)
-
-                                    linesCounter = 0; // обнуолим счетчик строк
-
-                                    throw std::invalid_argument("Error! Value is invalid: " + std::to_string(
-                                            element)); // вызываем (выбрасываем) ошибку, где говорим, что значение некорректное и показываем, что за значение мы получили.
+                                if (isBracetOpened) {
+                                    saveElement(elementsCounter, elementsPerLineCounter, stringBuilder);
                                 }
 
                                 break;
@@ -136,6 +165,19 @@ public:
         delete[] elements;
         delete[] linesLengths;
         linesCounter = 0;
+    }
+
+    void ConsoleWrite() {
+        std::cout << std::endl;
+
+        int baseIdx;
+        for (int i = 0; i < linesCounter; ++i) {
+            baseIdx = getBaseId(i);
+            for (int j = 0; j < linesLengths[i]; ++j) {
+                std::cout << elements[baseIdx] << '\t';
+            }
+            std::cout << std::endl;
+        }
     }
 
 };

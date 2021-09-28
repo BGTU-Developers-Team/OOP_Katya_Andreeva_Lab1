@@ -5,7 +5,9 @@
 #include "MyMatrix.h"
 
 int main() {
-    auto myMatrix = new MyMatrix<int>();
+    auto myMatrix = new MyMatrix<int>("{[1,2,3],[4,5,6]}");
+
+    myMatrix->ConsoleWrite();
 
     return 0;
 }
