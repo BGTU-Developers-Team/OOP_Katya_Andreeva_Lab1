@@ -13,7 +13,7 @@ template<typename T>
 class MyMatrix {
 private:
     std::vector<int> linesLengths;
-    int linesCounter = 0;
+    int linesCounter;
     std::vector<T> elements;
 
     int getBaseId(int currentLineId) {
@@ -62,7 +62,7 @@ public:
 
     // Коструктор пустной, следовательно поля у него пустые.
     MyMatrix() {
-//        linesCounter = 0;
+        linesCounter = 0;
     }
 
     // Конструктор копирования. Нужно просто сохранить поля одного элемента в поля копии и готово.
@@ -81,6 +81,7 @@ public:
 
     // Конструктор со стрингами (18+). Необходжимо преобразовать сроку и извлечь из нее все даннные.
     explicit MyMatrix(const std::string &matrixStr) {
+        linesCounter = 0;
         std::string errorProtocolMsg = "The stringified matrix must look like: {[1, 2, 3], [1.1, 1.2, 1.3]}"; // тут я просто сохранил сообщение ошибки, потому что буду использовать его много раз. Это хороший подход. Запомни его!
 
         if (matrixStr[0] == '{' && matrixStr.find('}') !=
@@ -196,7 +197,7 @@ public:
             }
         } else {
             table.row(0).set_cell_content_text_style(fort::text_style::bold);
-            table << fort::header << "Талица пустая";
+            table << fort::header << "Таблица пустая";
         }
 
 
