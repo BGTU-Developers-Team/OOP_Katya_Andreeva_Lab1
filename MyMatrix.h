@@ -32,9 +32,17 @@ private:
         std::istringstream ss(
                 stringBuilder); // мы берем нашу строку с записанными данными (новым элементом матрицы) и делаем из него поток данных для того, чтобы потом можно было сделать проверку, а можно ли его вообще записать в наше временную переменную.
         stringBuilder.clear(); // очищаем собранный из символов элемент матрицы
-        //TODO int cannot be set from double
         if (ss
                 >> element) { // Пытаемся записать строку, собранную до этого посимвольно, во временную переменную
+            if (ss.str().find('.') != std::string::npos && element == std::stoi(ss.str())) {
+                elements.clear();
+                linesLengths.clear();
+
+                // вызываем (выбрасываем) ошибку, где говорим, что значение некорректное и показываем, что за значение мы получили.
+                throw std::invalid_argument("Parsing error! You are trying to parse double (" +
+                                            ss.str() + ") to int.");
+            }
+
             // Если успешно, то:
             elementsPerLineCounter++; // увеличиваем счетчик элементов в строке
             elementsCounter++; // увеличиваем счетчик всех элементов
