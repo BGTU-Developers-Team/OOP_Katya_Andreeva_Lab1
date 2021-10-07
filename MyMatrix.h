@@ -12,9 +12,15 @@
 template<typename T>
 class MyMatrix {
 private:
-    std::vector<int> linesLengths;
+//    std::vector<int> linesLengths;
+    int *linesLengths;
+
     int linesCounter;
-    std::vector<T> elements;
+//    std::vector<T> elements;
+    T *elements;
+
+    int elementsPerLineCounter = 0;
+    int elementsCounter = 0;
 
     int getBaseId(int currentLineId) {
         int idx = 0;
@@ -26,8 +32,9 @@ private:
     }
 
 
-    void saveElement(int &elementsPerLineCounter, int &elementsCounter, std::string &stringBuilder) {
+    void saveElement(std::string &stringBuilder) {
         T element; // переменная для временного хранения элемента матрицы (Для его сохранения)
+
 
         std::istringstream ss(
                 stringBuilder); // мы берем нашу строку с записанными данными (новым элементом матрицы) и делаем из него поток данных для того, чтобы потом можно было сделать проверку, а можно ли его вообще записать в наше временную переменную.
@@ -35,8 +42,9 @@ private:
         if (ss
                 >> element) { // Пытаемся записать строку, собранную до этого посимвольно, во временную переменную
             if (ss.str().find('.') != std::string::npos && element == std::stoi(ss.str())) {
-                elements.clear();
-                linesLengths.clear();
+                delete[] elements;
+                delete[] linesLengths;
+                linesCounter = 0;
 
                 // вызываем (выбрасываем) ошибку, где говорим, что значение некорректное и показываем, что за значение мы получили.
                 throw std::invalid_argument("Parsing error! You are trying to parse double (" +
@@ -46,11 +54,23 @@ private:
             // Если успешно, то:
             elementsPerLineCounter++; // увеличиваем счетчик элементов в строке
             elementsCounter++; // увеличиваем счетчик всех элементов
-            elements.push_back(element);
+
+            if (elementsCounter == 1) {
+                elements = new T[1]{element};
+            } else {
+                T *temp = new T[elementsCounter];
+                std::memcpy(temp, elements, sizeof(T) * elementsCounter);
+//                std::copy(elements, elements + elementsCounter, temp);
+                delete[] elements;
+                elements = temp;
+                elements[elementsCounter - 1] = element;
+            }
+//            elements.push_back(element);
         } else {
             // Если не удалось записать собранную строчку во временную переменную, то:
-            elements.clear();
-            linesLengths.clear();
+            delete[] elements;
+            delete[] linesLengths;
+            linesCounter = 0;
 
             throw std::invalid_argument("Error! Value is invalid: " + std::to_string(
                     element)); // вызываем (выбрасываем) ошибку, где говорим, что значение некорректное и показываем, что за значение мы получили.
@@ -62,6 +82,8 @@ public:
 
     // Коструктор пустной, следовательно поля у него пустые.
     MyMatrix() {
+        linesLengths = nullptr;
+        elements = nullptr;
         linesCounter = 0;
     }
 
@@ -71,7 +93,7 @@ public:
         linesLengths = orig.linesLengths;
 
         // Нужно выделить память для хранения всех элементов матрицы. А сколько надо памяти? Нужно узнать сколько нужно для хранения одного элемента и потом умножить это значение на кол-во элементов.
-        int elementsCounter = 0; // Создадим счетчик элементов в матрице. Изначально 0
+        elementsCounter = 0; // Создадим счетчик элементов в матрице. Изначально 0
         for (int i = 0; i < linesCounter; ++i) {
             elementsCounter += linesLengths[i]; // Проходим по массиву строк
         }
@@ -96,8 +118,8 @@ public:
                     // Если все нормуль, то начием считывать первый ряд элементов:
                     bool isBracetOpened = true; // это переменная хранит кол-во открытых скобок в строке, потому что если эта переменная true и при этом встречается символ [, то нужно вызвать исключение, поскольку строка неверная.
 
-                    int elementsCounter = 0; // счетчик элементов во всей матрице
-                    int elementsPerLineCounter = 0; // счетчик элементов матрицы по строке
+                    elementsCounter = 0; // счетчик элементов во всей матрице
+                    elementsPerLineCounter = 0; // счетчик элементов матрицы по строке
 
                     std::string stringBuilder;
 
@@ -128,17 +150,26 @@ public:
                                 isBracetOpened = false; // Сменить флаг
                                 linesCounter++; // Увеличить счетчик строк
 
-                                saveElement(elementsCounter, elementsPerLineCounter, stringBuilder);
+                                saveElement(stringBuilder);
 
                                 // Сохранить длину свеже испеченной (добавленной) строки.
-                                linesLengths.push_back(elementsPerLineCounter);
+                                if (linesCounter == 1) {
+                                    linesLengths = new int[1]{elementsPerLineCounter};
+                                } else {
+                                    int *temp = new int[linesCounter];
+                                    std::copy(linesLengths, linesLengths + linesCounter, temp);
+                                    delete[] linesLengths;
+                                    linesLengths = temp;
+                                    linesLengths[linesCounter - 1] = elementsPerLineCounter;
+                                }
+
                                 elementsPerLineCounter = 0; // обнулить счетчик элементов по строке
 
                                 break;
                             }
                             case ',': { // Если запитая, то надо сохранить новый элемент матрицы
                                 if (isBracetOpened) {
-                                    saveElement(elementsCounter, elementsPerLineCounter, stringBuilder);
+                                    saveElement(stringBuilder);
                                 }
 
                                 break;
@@ -163,7 +194,7 @@ public:
     MyMatrix(const std::vector<T> &elements, const std::vector<int> &linesLengths, const int &linesCounter) {
         this->linesCounter = linesCounter;
         this->linesLengths = linesLengths;
-        int elementsCounter = 0;
+        elementsCounter = 0;
         for (int i = 0; i < linesCounter; ++i) {
             elementsCounter += linesLengths[i];
         }
@@ -172,8 +203,8 @@ public:
 
     // Деструктор. Его задача очистить память, где мы хранили _некогда_самые_дорогие_ данные, а сейчас они _пропадают_
     ~MyMatrix() {
-        elements.clear();
-        linesLengths.clear();
+        delete[] elements;
+        delete[] linesLengths;
         linesCounter = 0;
     }
 
